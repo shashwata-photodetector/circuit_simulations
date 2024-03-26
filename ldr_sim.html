@@ -1,1 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LDR Circuit Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+
+<style>
+  body{
+    font-family: "Arimo", sans-serif;
+    text-align: center;
+  }
+  img{
+    margin:0;
+  }
+</style>
+
+
+</head>
+<body>
+  <div style="text-align: center; background:lightgray; border-radius: 5px; padding: 8px;">
+    <h3>LDR Circuit Simulation</h3>
+    <p>Simulated by Shashwata on HTML5</p>
+  </div>
+    <video id="video" width="320" height="240" autoplay style="display:none;"></video>
+    <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+    <p id="light-level">Waiting for camera data...</p>
+    <canvas id="oscilloscope" width="300" height="270"></canvas>
+    <div>
+      <h4>Circuit Diagram </h4>
+      <img src="ldr_circuit.png" alt="Circuit Diagram of a simple LDR and a voltmeter" width="320" height="150">
+    </div>
+    <footer style="color:black; text-align: center; background: lightgray; padding: 5px; border-radius: 5px">
+     <a href="https://github.com/shashwata-photodetector/circuit_simulation/ldr_sim.html" style="text-decoration: none; color: black"> GitHub </a>
+    </footer>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const lightLevelElement = document.getElementById('light-level');
+        const oscilloscopeCtx = document.getElementById('oscilloscope').getContext('2d');
+        const maxDataPoints = 50;
+        const oscilloscopeData = Array(maxDataPoints).fill(0);
+
+        // Initialize the Chart.js line chart for the oscilloscope
+        const oscilloscopeChart = new Chart(oscilloscopeCtx, {
+            type: 'line',
+            data: {
+                labels: Array(maxDataPoints).fill(''),
+                datasets: [{
+                    label: 'Light Level',
+                    data: oscilloscopeData,
+                    borderColor: 'black',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0 // Set to 0 for straight lines
+                }]
+            },
+            options: {
+                animation: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 1023
+                    }
+                }
+            }
+        });
+
+        // Get access to the camera
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then((stream) => {
+                    video.srcObject = stream;
+                    video.play();
+                    estimateLightLevel();
+                })
+                .catch((err) => {
+                    console.error('Error accessing the camera:', err);
+                });
+        } else {
+            lightLevelElement.textContent = 'Camera access not supported';
+        }
+
+        function estimateLightLevel() {
+            // Draw the video frame to the canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Get the image data from the canvas
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            // Calculate the average brightness of the image
+            let totalBrightness = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                // Convert the RGB color to grayscale using the luminance formula
+                const brightness = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+                totalBrightness += brightness;
+            }
+            const averageBrightness = totalBrightness / (data.length / 4);
+
+            // Scale the brightness to a value between 0 and 1023
+            const scaledBrightness = Math.round((averageBrightness / 255) * 1023);
+
+            // Update the displayed light level
+            lightLevelElement.textContent = `Intensity (a.u.): ${scaledBrightness}`;
+
+            // Update the oscilloscope chart
+            oscilloscopeData.push(scaledBrightness);
+            oscilloscopeData.shift();
+            oscilloscopeChart.update();
+
+            // Repeat the estimation periodically
+            setTimeout(estimateLightLevel, 1000);
+        }
+    </script>
+</body>
+</html>
 
